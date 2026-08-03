@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant { 
+  id String @id @default(cuid()) 
+  name String 
+  email String @unique 
+  planID String
+  createdAt DateTime @default(now())
+  plan Plan @relation(fields: [planID], references :[id])
+  // TODO: add stripe customer id field
+
+  usageEvents UsageEvent[]
+  subscriptions Subscription[]
+}
+
+model Plan {
+  id String @id @default(cuid()) 
+  planType PlanType
+  callLimit Int
+  tokenLimit Int
+  price Float 
+  tenants Tenant[]
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+model UsageEvent {
+  id String @id @default(cuid())
+  tenantID String 
+  tenant Tenant @relation(fields: [tenantID], references: [id])
+  idempotencyKey String
+  usageType UsageType
+  usedAt DateTime @default(now())
+  quantity Int 
+  @@unique([tenantID, idempotencyKey])
+}
+
+enum UsageType {
+  API_CALL
+  AI_TOKEN
+}
+
+model Subscription {
+  id String @id @default(cuid())
+  tenantID String 
+  tenant Tenant @relation(fields: [tenantID], references: [id])
+  stripeID String @unique
+  status String 
+  updatedAt DateTime @updatedAt
+}
