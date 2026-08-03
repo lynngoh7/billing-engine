@@ -1,41 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Usage Metering & Billing Engine
+
+A backend service that answers the three questions every SaaS product needs to answer: **how much has this customer used, what does it cost, and have they hit their limit?**
+
+This project implements usage metering, quota enforcement, and cost calculation with a focus on correctness under retries and failures — the kind of bugs that cost real money if handled wrong.
+
+## What it does
+
+- **Idempotent usage metering** — records billable actions (API calls, AI tokens) exactly once per idempotency key, even under duplicate/retried requests
+- **Quota enforcement** — checks usage against a tenant's plan limits before allowing an action, returning `429` (quota exceeded) or `402` (payment required) with clear explanations
+- **Cost calculation** — converts usage into money, correctly handling AI-token pricing rules (cached input tokens, reasoning tokens, output tokens)
+- **Stripe subscription integration (test mode)** — Checkout flow for plan upgrades, with signature-verified, deduplicated webhooks keeping tenant plan/status in sync
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) (API routes)
+- PostgreSQL + [Prisma](https://www.prisma.io) ORM
+- Docker Compose (local Postgres)
+- Stripe test mode + Stripe CLI
+
+## Status
+
+🚧 In progress — early scaffolding (API route stubs, Prisma schema/migrations, Docker setup)
+
+## Architecture
+
+\`\`\`
+Client ─► Billable API request
+ └─► MeterService.record(tenant, type, qty, idempotencyKey)
+ ├─ duplicate key? → return original result (no new event)
+ ├─ store usage_event
+ └─► Quota Check ─► allowed
+ └─► limit exceeded → 402 / 429 + clear message
+
+GET /usage ◄── rollup(usage_events) → { used, limit, cost }
+
+Stripe Checkout (test mode) ─► subscription created
+Stripe ─signed webhook─► /webhooks/stripe
+ ├─► verify signature (forged → 400)
+ ├─► deduplicate event (replay → ignored)
+ └─► update tenant plan / status
+\`\`\`
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
+- Node.js 18+
+- Docker (for local Postgres)
+- A free [Stripe](https://stripe.com) account (test mode, no card required) + the [Stripe CLI](https://stripe.com/docs/stripe-cli)
+
+### 1. Clone and install
+
+\`\`\`bash
+git clone https://github.com/lynngoh7/billing-engine.git
+cd billing-engine
+npm install
+\`\`\`
+
+### 2. Set up environment variables
+
+\`\`\`bash
+cp .env.example .env
+\`\`\`
+
+Fill in your Stripe test-mode keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) and database URL. Never commit `.env`.
+
+### 3. Start the database
+
+\`\`\`bash
+docker compose up -d
+\`\`\`
+
+### 4. Run Prisma migrations
+
+\`\`\`bash
+npx prisma migrate dev
+\`\`\`
+
+### 5. Forward Stripe webhooks locally
+
+\`\`\`bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+\`\`\`
+
+### 6. Run the dev server
+
+\`\`\`bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the result, or hit the API directly:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Project Description
-
-# billing-engine
-# billing-engine
+\`\`\`bash
+curl http://localhost:3000/api/ping
+\`\`\`
