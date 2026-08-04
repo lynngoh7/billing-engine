@@ -25,4 +25,27 @@ Plan: id, name (Free/Pro), callLimit, tokenLimit, price
 UsageEvent: tenantId, type, quantity, idempotencyKey, date/timestamp — with uniqueness on (tenantId, idempotencyKey)
 Subscription: (light for now, we'll flesh this out properly in Week 2 alongside Stripe) — tenantId, some Stripe reference id, status
 
-Day 1 Summary: Installed tech stack, 
+Day 1 Summary: Installed tech stack, built basic API using Node.js, used prisma to create tables
+
+limits:
+- 1000 calls and 100k tokens for Free plan
+- 10000 calls and 1M tokens for Pro plan 
+
+- create plan rows before tenant rows 
+
+idempotency key logic (try...catch):
+- attempt to insert into table
+- if action is a duplicate of previous (P2002 error code) do not insert
+- then inform client that the action was performed successfully 
+- if the error is not of duplicate type (P2002) then we throw an error 
+
+describe groups related tests under a label.
+it (or test, same thing) defines one individual test case, with a description of what it proves.
+expect(...).toBe(...) / .toEqual(...) — assertions; the test fails if these don't hold.
+
+testing strat:
+1. call record() with an I.K
+2. call record() again with the same key
+3. count the number of records in the database with the key, should return 1, else the logic is wrong 
+
+day 2 summary: created test Tenants, implemenmted idempotency error handling, wrote tests for idempotency 
