@@ -24,6 +24,7 @@ This project implements usage metering, quota enforcement, and cost calculation 
 -  Idempotent usage metering (`MeterService.record`) — proven via automated test (duplicate idempotency key → single usage event)
 -  Quota enforcement (`checkQuota` + rollup) — proven via boundary test (at-limit allowed, over-limit refused with `402`)
 -  `POST /api/usage` — billable action endpoint wired to metering + quota checks
+- Cost computation for API calls and AI token usage 
 
 **In progress / next up:**
 -  Cost computation (AI token pricing rules)

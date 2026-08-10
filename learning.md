@@ -65,3 +65,8 @@ api testing for quotas:
 1. route receives a request parsed from json
 2. call checkquota on the request
 3. if the call is not allowed then return a 402 response, else call record() to log the usage, then return a success response 
+
+usage cost computation:
+- cached input tokens are cheaper than regular input tokens, if a req reuses prev processed context, the provider charges a discounted rate for the cached portion 
+- some models generate internal "reasoning" tokens before giving the final answer, these should be priced as output tokens and do not double coumt them 
+- api calls charge a flat rate per call 
