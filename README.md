@@ -19,8 +19,17 @@ This project implements usage metering, quota enforcement, and cost calculation 
 - Stripe test mode + Stripe CLI
 
 ## Status
+**Completed**
+-  Data model (Tenant, Plan, UsageEvent, Subscription) — migrated, relations + composite unique constraints in place
+-  Idempotent usage metering (`MeterService.record`) — proven via automated test (duplicate idempotency key → single usage event)
+-  Quota enforcement (`checkQuota` + rollup) — proven via boundary test (at-limit allowed, over-limit refused with `402`)
+-  `POST /api/usage` — billable action endpoint wired to metering + quota checks
 
-🚧 In progress — early scaffolding (API route stubs, Prisma schema/migrations, Docker setup)
+**In progress / next up:**
+-  Cost computation (AI token pricing rules)
+-  Stripe Checkout + webhook integration
+-  Forged/duplicate webhook tests
+-  Architecture diagram refinement
 
 ## Architecture
 
@@ -40,6 +49,13 @@ Stripe ─signed webhook─► /webhooks/stripe
  ├─► deduplicate event (replay → ignored)
  └─► update tenant plan / status
 \`\`\`
+
+## Design Notes 
+**Why 402, not 429, for quota enforcement:** `429 Too Many Requests` conventionally signals rate-limiting (too many requests too fast). Exhausting a monthly usage quota is a different problem — the tenant needs to upgrade or wait for their billing period to reset, not slow down. `402 Payment Required` more accurately communicates that. `429` is reserved for genuine rate-limiting if added later.
+
+**Idempotency key design:** uniqueness is enforced on the composite key `(tenantId, idempotencyKey)`, not `idempotencyKey` alone — this allows different tenants to safely reuse the same key value (e.g. both generating `"req-1"` independently) while still guaranteeing that a retried request from the *same* tenant is recognized and deduplicated at the database level, not just checked in application code (avoiding race conditions under concurrent retries).
+
+**Quota boundary rule:** a request is refused only if fulfilling it would make `used + requested > limit` — i.e. usage landing exactly *at* the limit is allowed; the next request after that is refused. This boundary is covered by an automated test.
 
 ## Getting Started
 

@@ -48,4 +48,20 @@ testing strat:
 2. call record() again with the same key
 3. count the number of records in the database with the key, should return 1, else the logic is wrong 
 
-day 2 summary: created test Tenants, implemenmted idempotency error handling, wrote tests for idempotency 
+getUsage logic:
+1. find the tenant and their plan
+2. sum the UsageEvent rows this month and group them by type
+3. return how many calls and tokens they have ussed against their quota 
+
+checkQuota logic:
+1. find the tenants plan and check how many tokens and calls they hv used
+2. if under quota for relevant action proceed with no error 
+3. else if the next action causes quota to be exceeded, refuse the action and inform tenant (402)
+    
+
+day 2 summary: created test Tenants, implemenmted idempotency error handling, wrote tests for idempotency, added meter and quota service 
+
+api testing for quotas:
+1. route receives a request parsed from json
+2. call checkquota on the request
+3. if the call is not allowed then return a 402 response, else call record() to log the usage, then return a success response 
