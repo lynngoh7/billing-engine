@@ -24,13 +24,15 @@ This project implements usage metering, quota enforcement, and cost calculation 
 -  Idempotent usage metering (`MeterService.record`) — proven via automated test (duplicate idempotency key → single usage event)
 -  Quota enforcement (`checkQuota` + rollup) — proven via boundary test (at-limit allowed, over-limit refused with `402`)
 -  `POST /api/usage` — billable action endpoint wired to metering + quota checks
-- Cost computation for API calls and AI token usage 
+-   Cost computation for API calls and AI token usage 
+-   Stripe checkout integration, creates a test-mode subscription session
+-   Stripe webhook handler, verifies that the signature is valid and can be accepted, syncs tenants plan + creates subscription record
+-   Full end to end workflow verified: checkout -> payment -> signed webhook -> tenant plan updated in database 
 
 **In progress / next up:**
--  Cost computation (AI token pricing rules)
--  Stripe Checkout + webhook integration
--  Forged/duplicate webhook tests
 -  Architecture diagram refinement
+-  Automated tests 
+-  
 
 ## Architecture
 
@@ -57,6 +59,10 @@ Stripe ─signed webhook─► /webhooks/stripe
 **Idempotency key design:** uniqueness is enforced on the composite key `(tenantId, idempotencyKey)`, not `idempotencyKey` alone — this allows different tenants to safely reuse the same key value (e.g. both generating `"req-1"` independently) while still guaranteeing that a retried request from the *same* tenant is recognized and deduplicated at the database level, not just checked in application code (avoiding race conditions under concurrent retries).
 
 **Quota boundary rule:** a request is refused only if fulfilling it would make `used + requested > limit` — i.e. usage landing exactly *at* the limit is allowed; the next request after that is refused. This boundary is covered by an automated test.
+
+**Webhook signature verification:** the route reads the raw request body (`request.text()`, not `request.json()`) because Stripe's signature is computed over the exact raw bytes it sent — parsing and re-serializing the body would break verification even without any malicious tampering. Verification uses `stripe.webhooks.constructEvent()`, which throws on an invalid/forged signature; the route catches this and returns `400`.
+
+**Source of truth for subscription state:** the client-side redirect after Checkout is not trusted to update the database — only the signed webhook is. A user closing their browser before the redirect fires would otherwise leave the system in an inconsistent state; the webhook is guaranteed to fire regardless.
 
 ## Getting Started
 

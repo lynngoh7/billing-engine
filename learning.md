@@ -70,3 +70,15 @@ usage cost computation:
 - cached input tokens are cheaper than regular input tokens, if a req reuses prev processed context, the provider charges a discounted rate for the cached portion 
 - some models generate internal "reasoning" tokens before giving the final answer, these should be priced as output tokens and do not double coumt them 
 - api calls charge a flat rate per call 
+
+day 3 summary: added usage cost computation 
+
+stripe checkout session:
+- when a tenant wants to upgrade to pro, server asks stripe to create a checkout session, and stripe sends back a URL which hosts the payment page
+- once payment succeeds stripe redirects back to a specified url and sends a webhook to the server confirming that the subscription was created 
+
+signature verification: 
+- required so that fake pro subscriptions are not trusted blindly 
+- stripe signs each webhook using secret and the server recomputes the signature form the raw request body and compares it 
+- if it doesnt match then the request is forges and must not be accepted 
+day 4 summary: added stripe checkout page 
