@@ -1,12 +1,12 @@
 export const PRICING = {
     apiCall: {
-        perCall : 0.01
+        perCall : 10000
     },
 
     aiTokens: {
-        perInputToken: 0.000005,
-        perCachedInputToken: 0.0000025,
-        perOutputToken: 0.00001
+        perInputToken: 5,
+        perCachedInputToken: 3,
+        perOutputToken: 10
 
     },
 

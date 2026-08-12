@@ -15,7 +15,7 @@ async function main(){
         planType: 'PRO',
         callLimit: 10000,
         tokenLimit: 1000000,
-        price: 30.00
+        price: 3000
     }})
 
     const tenantFree = await prisma.tenant.upsert({ 

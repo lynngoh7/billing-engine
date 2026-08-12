@@ -24,15 +24,16 @@ This project implements usage metering, quota enforcement, and cost calculation 
 -  Idempotent usage metering (`MeterService.record`) — proven via automated test (duplicate idempotency key → single usage event)
 -  Quota enforcement (`checkQuota` + rollup) — proven via boundary test (at-limit allowed, over-limit refused with `402`)
 -  `POST /api/usage` — billable action endpoint wired to metering + quota checks
--   Cost computation for API calls and AI token usage 
--   Stripe checkout integration, creates a test-mode subscription session
--   Stripe webhook handler, verifies that the signature is valid and can be accepted, syncs tenants plan + creates subscription record
--   Full end to end workflow verified: checkout -> payment -> signed webhook -> tenant plan updated in database 
+-  Cost computation for API calls and AI token usage 
+-  Stripe checkout integration, creates a test-mode subscription session
+-  Stripe webhook handler, verifies that the signature is valid and can be accepted, syncs tenants plan + creates subscription record
+-  Full end to end workflow verified: checkout -> payment -> signed webhook -> tenant plan updated in database 
+-  Duplicate webhook protection and all 3 webhook events (create, update, delete) handled 
 
 **In progress / next up:**
 -  Architecture diagram refinement
--  Automated tests 
--  
+-  Automated tests for duplicate webhook 
+-  Demo rehearsal 
 
 ## Architecture
 
@@ -63,6 +64,17 @@ Stripe ─signed webhook─► /webhooks/stripe
 **Webhook signature verification:** the route reads the raw request body (`request.text()`, not `request.json()`) because Stripe's signature is computed over the exact raw bytes it sent — parsing and re-serializing the body would break verification even without any malicious tampering. Verification uses `stripe.webhooks.constructEvent()`, which throws on an invalid/forged signature; the route catches this and returns `400`.
 
 **Source of truth for subscription state:** the client-side redirect after Checkout is not trusted to update the database — only the signed webhook is. A user closing their browser before the redirect fires would otherwise leave the system in an inconsistent state; the webhook is guaranteed to fire regardless.
+
+**Duplicate webhook handling:** rather than relying on incidental unique constraints (e.g. `Subscription.stripeID`), duplicate protection uses a dedicated `ProcessedWebhookEvent` table keyed on Stripe's own `event.id`, checked once before any event-type-specific logic runs. This uniformly covers all event types — including `update` operations, which don't naturally error on repetition the way `create` does.
+
+**Subscription cancellation:** on `customer.subscription.deleted`, the tenant's plan is immediately reverted to Free (no grace period to end-of-billing-cycle). This is a deliberate scope simplification for this project.
+
+**Testability over framework helpers:** the webhook route reads `stripe-signature` directly from `request.headers` rather than via `next/headers`'s `headers()` helper, since the latter only works inside a live Next.js request context and can't be exercised in unit tests.
+
+## Limitations
+
+- `GET /usage` computes AI token cost by treating all recorded tokens as regular input tokens, since `UsageEvent` does not currently distinguish cached input, regular input, and output tokens at the point of recording. A production version would extend the schema to capture this breakdown per event.
+- Subscription cancellation downgrades a tenant to Free immediately, rather than at the end of their current billing period.
 
 ## Getting Started
 

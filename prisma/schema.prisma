@@ -32,7 +32,7 @@ model Plan {
   planType PlanType
   callLimit Int
   tokenLimit Int
-  price Float 
+  price Int //stored in cents 
   tenants Tenant[]
 }
 
@@ -64,4 +64,10 @@ model Subscription {
   stripeID String @unique
   status String 
   updatedAt DateTime @updatedAt
+}
+
+model ProcessedWebhookEvent {
+  id String @id @default(cuid())
+  stripeEventID String @unique 
+  processedAt DateTime @default(now())
 }

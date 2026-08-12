@@ -81,4 +81,28 @@ signature verification:
 - required so that fake pro subscriptions are not trusted blindly 
 - stripe signs each webhook using secret and the server recomputes the signature form the raw request body and compares it 
 - if it doesnt match then the request is forges and must not be accepted 
-day 4 summary: added stripe checkout page 
+
+day 4 summary: added stripe checkout page with verification 
+
+returning used + limit + cost flow:
+- route recives a tenantID (GET) through a request.url
+- call getUsage() to return used tokens and the limit
+- call calculateCost() to return how much the request costed 
+limitations: getUsage only tracks tokens and calls whereas calculateCost expects a breakdown of the 3 types of tokens + api call 
+
+duplicate webhook handling: 
+- stripe may send the same webhook twice if there are network issues or if the server is slow to respond 
+- the same event might end up being sent multiple times, hence webhook handler must be able to distinguish from new events and events which have been processed previously
+
+solution: 
+- stripe assigns each webhook event a unique event.id 
+- track each event and avoid processing any event.ids which have already been seed, return success automatically 
+- create a new table to store event.ids (3 types, create + update + delete)
+
+updating tennat subscription logic: 
+1. match the stripeSubscriptionID to to tenant who wants to cancel their subscription and change their status 
+2. capture this change as an entire row
+3. find the freePlan.id 
+4. find the tenant who owns the subscription that just got cancelled and set their planID to point to Free instead of pro 
+
+day 5 summary: GET /usage returns {used, limits, cost}, duplicate webhook handling, updating tenant subscription status, added tests 
