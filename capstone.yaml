@@ -1,0 +1,17 @@
+run: "npm run dev"
+seed: "npx tsx --env-file=.env prisma/seed.ts"
+test: "npm run test"
+base_url: "http://localhost:3000"
+run: "docker compose up -d && npm run dev"
+endpoints:
+  endpoints:
+  - method: GET
+    path: /api/ping
+  - method: GET
+    path: /api/usage
+  - method: POST
+    path: /api/usage
+  - method: POST
+    path: /api/checkout
+  - method: POST
+    path: /api/webhooks/stripe

@@ -106,3 +106,5 @@ updating tennat subscription logic:
 4. find the tenant who owns the subscription that just got cancelled and set their planID to point to Free instead of pro 
 
 day 5 summary: GET /usage returns {used, limits, cost}, duplicate webhook handling, updating tenant subscription status, added tests 
+
+AI Usage: AI (Claude) was used throughout as a guided-review partner, and I did not directly paste any generated code, most functions were written by me first and I would only consult AI when I could not debug issues myself. 

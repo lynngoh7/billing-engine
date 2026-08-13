@@ -7,7 +7,7 @@ This project implements usage metering, quota enforcement, and cost calculation 
 ## What it does
 
 - **Idempotent usage metering** — records billable actions (API calls, AI tokens) exactly once per idempotency key, even under duplicate/retried requests
-- **Quota enforcement** — checks usage against a tenant's plan limits before allowing an action, returning `429` (quota exceeded) or `402` (payment required) with clear explanations
+- **Quota enforcement** — checks usage against a tenant's plan limits before allowing an action, returning `402` (payment required) with clear explanations
 - **Cost calculation** — converts usage into money, correctly handling AI-token pricing rules (cached input tokens, reasoning tokens, output tokens)
 - **Stripe subscription integration (test mode)** — Checkout flow for plan upgrades, with signature-verified, deduplicated webhooks keeping tenant plan/status in sync
 
@@ -19,39 +19,39 @@ This project implements usage metering, quota enforcement, and cost calculation 
 - Stripe test mode + Stripe CLI
 
 ## Status
-**Completed**
--  Data model (Tenant, Plan, UsageEvent, Subscription) — migrated, relations + composite unique constraints in place
--  Idempotent usage metering (`MeterService.record`) — proven via automated test (duplicate idempotency key → single usage event)
--  Quota enforcement (`checkQuota` + rollup) — proven via boundary test (at-limit allowed, over-limit refused with `402`)
--  `POST /api/usage` — billable action endpoint wired to metering + quota checks
--  Cost computation for API calls and AI token usage 
--  Stripe checkout integration, creates a test-mode subscription session
--  Stripe webhook handler, verifies that the signature is valid and can be accepted, syncs tenants plan + creates subscription record
--  Full end to end workflow verified: checkout -> payment -> signed webhook -> tenant plan updated in database 
--  Duplicate webhook protection and all 3 webhook events (create, update, delete) handled 
 
-**In progress / next up:**
--  Architecture diagram refinement
--  Automated tests for duplicate webhook 
--  Demo rehearsal 
+✅ **Ships** — all core requirements from the capstone brief are complete and tested.
+
+- Idempotent usage metering, proven by test
+- Quota enforcement with honest status codes (402), boundary-tested
+- Cost computation with pinned constants, AI-token pricing rules (cached input, reasoning-as-output)
+- Money stored as integers throughout — no floats
+- Stripe Checkout + signature-verified, idempotent webhooks (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted)
+- Duplicate webhook protection via dedicated event-tracking table
+- Full test suite: metering, quota boundary, cost formula, forged webhook rejection, duplicate webhook handling — all passing
+- GET /usage returns {used, limit, cost} 
 
 ## Architecture
 
 \`\`\`
 Client ─► Billable API request
  └─► MeterService.record(tenant, type, qty, idempotencyKey)
- ├─ duplicate key? → return original result (no new event)
- ├─ store usage_event
- └─► Quota Check ─► allowed
- └─► limit exceeded → 402 / 429 + clear message
+      ├─ duplicate key? → return original result (no new event)
+      ├─ store usage_event
+      └─► Quota Check
+           ├─ allowed → success
+           └─ limit exceeded → 402 + clear message
 
 GET /usage ◄── rollup(usage_events) → { used, limit, cost }
 
 Stripe Checkout (test mode) ─► subscription created
 Stripe ─signed webhook─► /webhooks/stripe
  ├─► verify signature (forged → 400)
- ├─► deduplicate event (replay → ignored)
- └─► update tenant plan / status
+ ├─► deduplicate event via ProcessedWebhookEvent (replay → ignored)
+ └─► branch by event type:
+      ├─ checkout.session.completed      → create Subscription, upgrade Tenant to Pro
+      ├─ customer.subscription.updated   → sync Subscription.status
+      └─ customer.subscription.deleted   → cancel Subscription, downgrade Tenant to Free
 \`\`\`
 
 ## Design Notes 
